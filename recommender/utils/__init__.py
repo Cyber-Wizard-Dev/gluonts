@@ -11,11 +11,14 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-import warnings
+from .pareto import (
+    argsort_nondominated,
+    epsilon_net_indices,
+    pareto_efficiency_mask,
+)
 
-
-def _suppress_useless_warnings() -> None:
-    warnings.simplefilter("ignore", FutureWarning)
-
-
-_suppress_useless_warnings()
+__all__ = [
+    "argsort_nondominated",
+    "epsilon_net_indices",
+    "pareto_efficiency_mask",
+]

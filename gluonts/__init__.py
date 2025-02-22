@@ -11,11 +11,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-import warnings
+from .trainer import TimedTrainer
 
-
-def _suppress_useless_warnings() -> None:
-    warnings.simplefilter("ignore", FutureWarning)
-
-
-_suppress_useless_warnings()
+__all__ = [
+    "TimedTrainer",
+]

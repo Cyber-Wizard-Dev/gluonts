@@ -11,11 +11,19 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-import warnings
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+from tsbench.evaluations.metrics import Performance
+
+T = TypeVar("T")
 
 
-def _suppress_useless_warnings() -> None:
-    warnings.simplefilter("ignore", FutureWarning)
+@dataclass
+class Recommendation(Generic[T]):
+    """
+    A recommendation provides a configuration along with its expected
+    performance.
+    """
 
-
-_suppress_useless_warnings()
+    config: T
+    performance: Performance

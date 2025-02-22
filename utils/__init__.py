@@ -11,11 +11,14 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-import warnings
+from .filesystem import compress_directory
+from .latex import float_formatter
+from .scatterplot import DataEntry, Dimension, plot_scatter_matrix
 
-
-def _suppress_useless_warnings() -> None:
-    warnings.simplefilter("ignore", FutureWarning)
-
-
-_suppress_useless_warnings()
+__all__ = [
+    "compress_directory",
+    "float_formatter",
+    "DataEntry",
+    "Dimension",
+    "plot_scatter_matrix",
+]

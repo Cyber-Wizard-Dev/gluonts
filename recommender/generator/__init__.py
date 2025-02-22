@@ -11,11 +11,10 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-import warnings
+from ._base import CandidateGenerator
+from .replay import ReplayCandidateGenerator
 
-
-def _suppress_useless_warnings() -> None:
-    warnings.simplefilter("ignore", FutureWarning)
-
-
-_suppress_useless_warnings()
+__all__ = [
+    "CandidateGenerator",
+    "ReplayCandidateGenerator",
+]

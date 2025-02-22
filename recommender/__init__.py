@@ -11,11 +11,24 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-import warnings
+from ._base import Recommender
+from ._factory import (
+    create_ensemble_recommender,
+    create_recommender,
+    ENSEMBLE_RECOMMENDER_REGISTRY,
+    RECOMMENDER_REGISTRY,
+)
+from .greedy import GreedyRecommender
+from .optimal import OptimalRecommender
+from .pareto import ParetoRecommender
 
-
-def _suppress_useless_warnings() -> None:
-    warnings.simplefilter("ignore", FutureWarning)
-
-
-_suppress_useless_warnings()
+__all__ = [
+    "ENSEMBLE_RECOMMENDER_REGISTRY",
+    "GreedyRecommender",
+    "OptimalRecommender",
+    "ParetoRecommender",
+    "RECOMMENDER_REGISTRY",
+    "Recommender",
+    "create_ensemble_recommender",
+    "create_recommender",
+]

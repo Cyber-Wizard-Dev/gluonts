@@ -11,11 +11,11 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-import warnings
+from pathlib import Path
 
+DEFAULT_DATA_PATH = Path.home() / "data" / "datasets"
+DEFAULT_DATA_CATCH22_PATH = Path.home() / "data" / "catch22"
+DEFAULT_DATA_STATS_PATH = Path.home() / "data" / "stats"
 
-def _suppress_useless_warnings() -> None:
-    warnings.simplefilter("ignore", FutureWarning)
-
-
-_suppress_useless_warnings()
+DEFAULT_EVALUATIONS_PATH = Path.home() / "evaluations"
+DEFAULT_ENSEMBLE_EVALUATIONS_PATH = Path.home() / "ensembles"
