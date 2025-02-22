@@ -11,8 +11,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+from .module import LagTSTModel
+from .lightning_module import LagTSTLightningModule
+from .estimator import LagTSTEstimator
 
-from pkgutil import extend_path
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+__all__ = ["LagTSTModel", "LagTSTLightningModule", "LagTSTEstimator"]

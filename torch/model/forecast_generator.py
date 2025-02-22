@@ -11,8 +11,14 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+import torch
 
-from pkgutil import extend_path
+from gluonts.model.forecast_generator import make_distribution_forecast
+from gluonts.torch.model.forecast import DistributionForecast
 
-__path__ = extend_path(__path__, __name__)  # type: ignore
+
+@make_distribution_forecast.register(torch.distributions.Distribution)
+def _(
+    distr: torch.distributions.Distribution, *args, **kwargs
+) -> DistributionForecast:
+    return DistributionForecast(distr, *args, **kwargs)

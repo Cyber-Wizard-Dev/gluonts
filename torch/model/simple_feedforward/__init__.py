@@ -11,8 +11,13 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+from .module import SimpleFeedForwardModel, make_linear_layer
+from .lightning_module import SimpleFeedForwardLightningModule
+from .estimator import SimpleFeedForwardEstimator
 
-from pkgutil import extend_path
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+__all__ = [
+    "make_linear_layer",
+    "SimpleFeedForwardModel",
+    "SimpleFeedForwardLightningModule",
+    "SimpleFeedForwardEstimator",
+]

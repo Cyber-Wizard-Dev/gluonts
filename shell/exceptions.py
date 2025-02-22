@@ -11,8 +11,11 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+from gluonts.exceptions import GluonTSException
 
-from pkgutil import extend_path
 
-__path__ = extend_path(__path__, __name__)  # type: ignore
+class ForecasterNotFound(GluonTSException):
+    """
+    An exception indicating that a forecaster identified by the given name
+    cannot be found in the current environment.
+    """

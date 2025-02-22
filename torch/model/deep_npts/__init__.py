@@ -11,8 +11,19 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+from ._estimator import DeepNPTSEstimator
+from ._network import (
+    DeepNPTSNetwork,
+    DeepNPTSMultiStepNetwork,
+    DeepNPTSNetworkDiscrete,
+    DeepNPTSNetworkSmooth,
+)
 
-from pkgutil import extend_path
 
-__path__ = extend_path(__path__, __name__)  # type: ignore
+__all__ = [
+    "DeepNPTSEstimator",
+    "DeepNPTSNetwork",
+    "DeepNPTSMultiStepNetwork",
+    "DeepNPTSNetworkDiscrete",
+    "DeepNPTSNetworkSmooth",
+]

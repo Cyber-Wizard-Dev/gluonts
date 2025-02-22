@@ -11,8 +11,12 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+from .module import MQF2MultiHorizonModel
+from .lightning_module import MQF2MultiHorizonLightningModule
+from .estimator import MQF2MultiHorizonEstimator
 
-from pkgutil import extend_path
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+__all__ = [
+    "MQF2MultiHorizonModel",
+    "MQF2MultiHorizonLightningModule",
+    "MQF2MultiHorizonEstimator",
+]
