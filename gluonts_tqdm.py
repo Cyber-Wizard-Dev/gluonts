@@ -11,13 +11,23 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+import functools
+import sys
+
+from tqdm import tqdm as _tqdm
+
+from .env import env
+
+# TODO: when we have upgraded this will give notebook progress bars
+# from tqdm.auto import tqdm as _tqdm
 
 
-from pkgutil import extend_path
+@functools.wraps(_tqdm)
+def tqdm(it, *args, **kwargs):
+    disable = not env.use_tqdm
 
-from .meta._version import __version__
+    kwargs = kwargs.copy()
+    if not sys.stdout.isatty():
+        kwargs.update(mininterval=10.0)
 
-__all__ = ["__version__", "__path__"]
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+    return _tqdm(it, *args, disable=disable, **kwargs)

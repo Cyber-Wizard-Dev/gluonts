@@ -11,13 +11,11 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+# flake8: noqa: F401, F403
 
+from typing import List
 
-from pkgutil import extend_path
+from .component import *
+from .model.forecast_generator import *
 
-from .meta._version import __version__
-
-__all__ = ["__version__", "__path__"]
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+__all__: List[str] = []

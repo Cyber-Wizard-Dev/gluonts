@@ -11,54 +11,49 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-from typing import NamedTuple, Optional
-from functools import partial
+from typing import NamedTuple, Optional, Iterable, Dict, Any
+import logging
 
 import numpy as np
-
-import torch
+import lightning.pytorch as pl
 import torch.nn as nn
-from torch.utils import data
-from torch.utils.data import DataLoader
 
-from gluonts.env import env
 from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
-from gluonts.model.estimator import Estimator
+from gluonts.env import env
+from gluonts.itertools import Cached
+from gluonts.model import Estimator, Predictor
 from gluonts.torch.model.predictor import PyTorchPredictor
-from gluonts.transform import SelectFields, Transformation
+from gluonts.transform import Transformation
 
-# from gluonts.support.util import maybe_len
-
-from pts import Trainer
-from pts.model import get_module_forward_input_names
-from pts.dataset.loader import TransformedIterableDataset
-
-
-def maybe_len(obj) -> Optional[int]:
-    try:
-        return len(obj)
-    except (NotImplementedError, AttributeError):
-        return None
+logger = logging.getLogger(__name__)
 
 
 class TrainOutput(NamedTuple):
     transformation: Transformation
     trained_net: nn.Module
+    trainer: pl.Trainer
     predictor: PyTorchPredictor
 
 
-class PyTorchEstimator(Estimator):
+class PyTorchLightningEstimator(Estimator):
+    """
+    An `Estimator` type with utilities for creating PyTorch-Lightning-based
+    models.
+
+    To extend this class, one needs to implement three methods:
+    `create_transformation`, `create_training_network`, `create_predictor`,
+    `create_training_data_loader`, and `create_validation_data_loader`.
+    """
+
     @validated()
     def __init__(
         self,
-        trainer: Trainer,
+        trainer_kwargs: Dict[str, Any],
         lead_time: int = 0,
-        dtype: np.dtype = np.float32,
     ) -> None:
         super().__init__(lead_time=lead_time)
-        self.trainer = trainer
-        self.dtype = dtype
+        self.trainer_kwargs = trainer_kwargs
 
     def create_transformation(self) -> Transformation:
         """
@@ -72,27 +67,14 @@ class PyTorchEstimator(Estimator):
         """
         raise NotImplementedError
 
-    def create_instance_splitter(self, mode: str) -> Transformation:
-        """
-        Create and return the instance splitter needed for training, validation
-        or testing.
-
-        Returns
-        -------
-        Transformation
-            The InstanceSplitter that will be applied entry-wise to datasets,
-            at training, validation and inference time based on mode.
-        """
-        raise NotImplementedError
-
-    def create_training_network(self, device: torch.device) -> nn.Module:
+    def create_lightning_module(self) -> pl.LightningModule:
         """
         Create and return the network used for training (i.e., computing the
         loss).
 
         Returns
         -------
-        nn.Module
+        pl.LightningModule
             The network that computes the loss given input data.
         """
         raise NotImplementedError
@@ -100,11 +82,17 @@ class PyTorchEstimator(Estimator):
     def create_predictor(
         self,
         transformation: Transformation,
-        trained_network: nn.Module,
-        device: torch.device,
+        module,
     ) -> PyTorchPredictor:
         """
         Create and return a predictor object.
+
+        Parameters
+        ----------
+        transformation
+            Transformation to be applied to data before it goes into the model.
+        module
+            A trained `pl.LightningModule` object.
 
         Returns
         -------
@@ -113,123 +101,133 @@ class PyTorchEstimator(Estimator):
         """
         raise NotImplementedError
 
-    def get_loader(
-        self,
-        training_data: Dataset,
-        validation_data: Optional[Dataset] = None,
-        num_workers: int = 0,
-        prefetch_factor: int = 2,
-        shuffle_buffer_length: Optional[int] = None,
-        cache_data: bool = False,
-        **kwargs,
-    ) -> TrainOutput:
-        transformation = self.create_transformation()
+    def create_training_data_loader(
+        self, data: Dataset, module, **kwargs
+    ) -> Iterable:
+        """
+        Create a data loader for training purposes.
 
-        trained_net = self.create_training_network(self.trainer.device)
+        Parameters
+        ----------
+        data
+            Dataset from which to create the data loader.
+        module
+            The `pl.LightningModule` object that will receive the batches from
+            the data loader.
 
-        input_names = get_module_forward_input_names(trained_net)
+        Returns
+        -------
+        Iterable
+            The data loader, i.e. and iterable over batches of data.
+        """
+        raise NotImplementedError
 
-        with env._let(max_idle_transforms=maybe_len(training_data) or 0):
-            training_instance_splitter = self.create_instance_splitter(
-                "training"
-            )
-        training_iter_dataset = TransformedIterableDataset(
-            dataset=training_data,
-            transform=transformation
-            + training_instance_splitter
-            + SelectFields(input_names),
-            is_train=True,
-            shuffle_buffer_length=shuffle_buffer_length,
-            cache_data=cache_data,
-        )
+    def create_validation_data_loader(
+        self, data: Dataset, module, **kwargs
+    ) -> Iterable:
+        """
+        Create a data loader for validation purposes.
 
-        training_data_loader = DataLoader(
-            training_iter_dataset,
-            batch_size=self.trainer.batch_size,
-            num_workers=num_workers,
-            prefetch_factor=prefetch_factor,
-            pin_memory=True,
-            worker_init_fn=self._worker_init_fn,
-            **kwargs,
-        )
-        return training_data_loader
+        Parameters
+        ----------
+        data
+            Dataset from which to create the data loader.
+        module
+            The `pl.LightningModule` object that will receive the batches from
+            the data loader.
+
+        Returns
+        -------
+        Iterable
+            The data loader, i.e. and iterable over batches of data.
+        """
+        raise NotImplementedError
 
     def train_model(
         self,
         training_data: Dataset,
         validation_data: Optional[Dataset] = None,
-        num_workers: int = 0,
-        prefetch_factor: int = 2,
+        from_predictor: Optional[PyTorchPredictor] = None,
         shuffle_buffer_length: Optional[int] = None,
         cache_data: bool = False,
+        ckpt_path: Optional[str] = None,
         **kwargs,
     ) -> TrainOutput:
         transformation = self.create_transformation()
 
-        trained_net = self.create_training_network(self.trainer.device)
-
-        input_names = get_module_forward_input_names(trained_net)
-
-        with env._let(max_idle_transforms=maybe_len(training_data) or 0):
-            training_instance_splitter = self.create_instance_splitter(
-                "training"
+        with env._let(max_idle_transforms=max(len(training_data), 100)):
+            transformed_training_data: Dataset = transformation.apply(
+                training_data, is_train=True
             )
-        training_iter_dataset = TransformedIterableDataset(
-            dataset=training_data,
-            transform=transformation
-            + training_instance_splitter
-            + SelectFields(input_names),
-            is_train=True,
-            shuffle_buffer_length=shuffle_buffer_length,
-            cache_data=cache_data,
-        )
+            if cache_data:
+                transformed_training_data = Cached(transformed_training_data)
 
-        training_data_loader = DataLoader(
-            training_iter_dataset,
-            batch_size=self.trainer.batch_size,
-            num_workers=num_workers,
-            prefetch_factor=prefetch_factor,
-            pin_memory=True,
-            worker_init_fn=self._worker_init_fn,
-            **kwargs,
-        )
+            training_network = self.create_lightning_module()
+
+            training_data_loader = self.create_training_data_loader(
+                transformed_training_data,
+                training_network,
+                shuffle_buffer_length=shuffle_buffer_length,
+            )
 
         validation_data_loader = None
+
         if validation_data is not None:
-            with env._let(max_idle_transforms=maybe_len(validation_data) or 0):
-                validation_instance_splitter = self.create_instance_splitter(
-                    "validation"
+            with env._let(max_idle_transforms=max(len(validation_data), 100)):
+                transformed_validation_data: Dataset = transformation.apply(
+                    validation_data, is_train=True
                 )
-            validation_iter_dataset = TransformedIterableDataset(
-                dataset=validation_data,
-                transform=transformation
-                + validation_instance_splitter
-                + SelectFields(input_names),
-                is_train=True,
-                cache_data=cache_data,
-            )
-            validation_data_loader = DataLoader(
-                validation_iter_dataset,
-                batch_size=self.trainer.batch_size,
-                num_workers=num_workers,
-                prefetch_factor=prefetch_factor,
-                pin_memory=True,
-                worker_init_fn=self._worker_init_fn,
-                **kwargs,
+                if cache_data:
+                    transformed_validation_data = Cached(
+                        transformed_validation_data
+                    )
+
+                validation_data_loader = self.create_validation_data_loader(
+                    transformed_validation_data,
+                    training_network,
+                )
+
+        if from_predictor is not None:
+            training_network.load_state_dict(
+                from_predictor.network.state_dict()
             )
 
-        self.trainer(
-            net=trained_net,
-            train_iter=training_data_loader,
-            validation_iter=validation_data_loader,
+        monitor = "train_loss" if validation_data is None else "val_loss"
+        checkpoint = pl.callbacks.ModelCheckpoint(
+            monitor=monitor, mode="min", verbose=True
         )
+
+        custom_callbacks = self.trainer_kwargs.pop("callbacks", [])
+        trainer = pl.Trainer(
+            **{
+                "accelerator": "auto",
+                "callbacks": [checkpoint] + custom_callbacks,
+                **self.trainer_kwargs,
+            }
+        )
+
+        trainer.fit(
+            model=training_network,
+            train_dataloaders=training_data_loader,
+            val_dataloaders=validation_data_loader,
+            ckpt_path=ckpt_path,
+        )
+
+        if checkpoint.best_model_path != "":
+            logger.info(
+                f"Loading best model from {checkpoint.best_model_path}"
+            )
+            best_model = training_network.__class__.load_from_checkpoint(
+                checkpoint.best_model_path
+            )
+        else:
+            best_model = training_network
 
         return TrainOutput(
             transformation=transformation,
-            trained_net=trained_net,
-            predictor=self.create_predictor(
-                transformation, trained_net, self.trainer.device
-            ),
+            trained_net=best_model,
+            trainer=trainer,
+            predictor=self.create_predictor(transformation, best_model),
         )
 
     @staticmethod
@@ -240,18 +238,34 @@ class PyTorchEstimator(Estimator):
         self,
         training_data: Dataset,
         validation_data: Optional[Dataset] = None,
-        num_workers: int = 0,
-        prefetch_factor: int = 2,
         shuffle_buffer_length: Optional[int] = None,
         cache_data: bool = False,
+        ckpt_path: Optional[str] = None,
         **kwargs,
     ) -> PyTorchPredictor:
         return self.train_model(
             training_data,
             validation_data,
-            num_workers=num_workers,
-            prefetch_factor=prefetch_factor,
             shuffle_buffer_length=shuffle_buffer_length,
             cache_data=cache_data,
-            **kwargs,
+            ckpt_path=ckpt_path,
+        ).predictor
+
+    def train_from(
+        self,
+        predictor: Predictor,
+        training_data: Dataset,
+        validation_data: Optional[Dataset] = None,
+        shuffle_buffer_length: Optional[int] = None,
+        cache_data: bool = False,
+        ckpt_path: Optional[str] = None,
+    ) -> PyTorchPredictor:
+        assert isinstance(predictor, PyTorchPredictor)
+        return self.train_model(
+            training_data,
+            validation_data,
+            from_predictor=predictor,
+            shuffle_buffer_length=shuffle_buffer_length,
+            cache_data=cache_data,
+            ckpt_path=ckpt_path,
         ).predictor

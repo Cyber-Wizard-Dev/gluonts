@@ -11,13 +11,24 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+from typing import List
+
+import numpy as np
+import torch
+
+from gluonts.dataset.common import DataBatch
 
 
-from pkgutil import extend_path
+def stack(data, device: torch.types.Device = None):
+    if isinstance(data[0], np.ndarray):
+        data = torch.tensor(np.array(data), device=device)
+    elif isinstance(data[0], (list, tuple)):
+        return list(stack(t, device=device) for t in zip(*data))
+    return data
 
-from .meta._version import __version__
 
-__all__ = ["__version__", "__path__"]
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+def batchify(data: List[dict], device: torch.types.Device = None) -> DataBatch:
+    return {
+        key: stack(data=[item[key] for item in data], device=device)
+        for key in data[0].keys()
+    }

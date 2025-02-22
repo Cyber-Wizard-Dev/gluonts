@@ -25,25 +25,17 @@ class FeatureEmbedder(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.__num_features = len(cardinalities)
-
-        def create_embedding(c: int, d: int) -> nn.Embedding:
-            embedding = nn.Embedding(c, d)
-            return embedding
-
-        self.__embedders = nn.ModuleList(
-            [
-                create_embedding(c, d)
-                for c, d in zip(cardinalities, embedding_dims)
-            ]
+        self._num_features = len(cardinalities)
+        self._embedders = nn.ModuleList(
+            [nn.Embedding(c, d) for c, d in zip(cardinalities, embedding_dims)]
         )
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        if self.__num_features > 1:
+        if self._num_features > 1:
             # we slice the last dimension, giving an array of length
-            # self.__num_features with shape (N,T) or (N)
+            # self._num_features with shape (N,T) or (N)
             cat_feature_slices = torch.chunk(
-                features, self.__num_features, dim=-1
+                features, self._num_features, dim=-1
             )
         else:
             cat_feature_slices = [features]
@@ -52,7 +44,7 @@ class FeatureEmbedder(nn.Module):
             [
                 embed(cat_feature_slice.squeeze(-1))
                 for embed, cat_feature_slice in zip(
-                    self.__embedders, cat_feature_slices
+                    self._embedders, cat_feature_slices
                 )
             ],
             dim=-1,
@@ -69,9 +61,11 @@ class FeatureAssembler(nn.Module):
         super().__init__()
 
         self.T = T
-        self.embeddings = nn.ModuleDict(
-            {"embed_static": embed_static, "embed_dynamic": embed_dynamic}
-        )
+        self.embeddings = nn.ModuleDict()
+        if embed_static is not None:
+            self.embeddings["embed_static"] = embed_static
+        if embed_dynamic is not None:
+            self.embeddings["embed_dynamic"] = embed_dynamic
 
     def forward(
         self,
@@ -90,15 +84,14 @@ class FeatureAssembler(nn.Module):
         return torch.cat(processed_features, dim=-1)
 
     def process_static_cat(self, feature: torch.Tensor) -> torch.Tensor:
-        if self.embeddings["embed_static"] is not None:
+        if "embed_static" in self.embeddings:
             feature = self.embeddings["embed_static"](feature)
         return feature.unsqueeze(1).expand(-1, self.T, -1).float()
 
     def process_dynamic_cat(self, feature: torch.Tensor) -> torch.Tensor:
-        if self.embeddings["embed_dynamic"] is None:
-            return feature.float()
-        else:
+        if "embed_dynamic" in self.embeddings:
             return self.embeddings["embed_dynamic"](feature)
+        return feature.float()
 
     def process_static_real(self, feature: torch.Tensor) -> torch.Tensor:
         return feature.unsqueeze(1).expand(-1, self.T, -1)

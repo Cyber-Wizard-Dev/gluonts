@@ -11,25 +11,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-from .distribution_output import (
-    NormalOutput,
-    StudentTOutput,
-    BetaOutput,
-    PoissonOutput,
-    ZeroInflatedPoissonOutput,
-    PiecewiseLinearOutput,
-    NegativeBinomialOutput,
-    ZeroInflatedNegativeBinomialOutput,
-    NormalMixtureOutput,
-    StudentTMixtureOutput,
-    IndependentNormalOutput,
-    LowRankMultivariateNormalOutput,
-    MultivariateNormalOutput,
-    FlowOutput,
-    DiffusionOutput,
-    ImplicitQuantileOutput,
-)
-from .feature import FeatureEmbedder, FeatureAssembler
-from .flows import RealNVP, MAF
-from .scaler import MeanScaler, NOPScaler
-from .gaussian_diffusion import GaussianDiffusion
+# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+
+from pkgutil import extend_path
+
+__path__ = extend_path(__path__, __name__)  # type: ignore

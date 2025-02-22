@@ -11,13 +11,11 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+from typing import Any
 
-
-from pkgutil import extend_path
-
-from .meta._version import __version__
-
-__all__ = ["__version__", "__path__"]
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+def dumps(obj) -> str: ...
+def bdumps(obj) -> bytes: ...
+def dump(obj, fp, nl=False) -> None: ...
+def bdump(obj, fp, nl=False) -> None: ...
+def load(fp) -> Any: ...
+def loads(s) -> Any: ...

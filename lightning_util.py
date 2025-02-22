@@ -11,13 +11,8 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-# !!! DO NOT MODIFY !!! (pkgutil-style namespace package)
+import lightning.pytorch as pl
 
 
-from pkgutil import extend_path
-
-from .meta._version import __version__
-
-__all__ = ["__version__", "__path__"]
-
-__path__ = extend_path(__path__, __name__)  # type: ignore
+def has_validation_loop(trainer: pl.Trainer):
+    return trainer.fit_loop.epoch_loop.val_loop._data_source.is_defined()
